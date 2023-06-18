@@ -6,7 +6,7 @@ from collections import Counter
 import base64
 
 
-INITIAL_DATA = "INITIAL_VOTE_DATA"
+INITIAL_DATA = "gAAAAABkjUtBL9vxTiHe_rZSBs6OJFVmMAQIlLWqb1GJAXG4-6S8CYImNfmk6nc3Bk3YuAp0RrT8R1ipa8ea_j3mV-G5z1P8UUQ7QzllO4lfyn9eN3w5l-ujiw5hmQxvX1njXLNgeoT6VroiSmOJvPn_3pLQ0TkaxVpyGqopkpL7nH04QfzLCfJj__zqNyXbD7SD2kfiI6ndRvYVhV8Kh8teEnbzVFFu-g=="
 
 
 def begin():
@@ -26,20 +26,40 @@ def begin():
 
     verifier_index_cache = []
 
+    i = 0
+    ttl = sum(len(x) for x in verification_data)
+
     while not end:
         if not any([len(f) > 0 for f in verification_data]):
             end = True
-        for whole_data in verification_data:
+        for k, whole_data in enumerate(verification_data):
+            if not whole_data:
+                continue
+
+            print(f"------ Decrypting Vote {i} of {ttl} ------\n")
+            print(f"Trying: \n"
+                  f"Data: {whole_data[0]}\n"
+                  f"From: {verification_files[k]}\n"
+                  f"Using: {previous_vote_data}")
+
             try:
                 data = fernet_decrypt(whole_data[0], previous_vote_data)
             except (InvalidToken, InvalidSignature):
-                if verification_data.index(whole_data) == len(verification_data) - 1:
+                print("FAILED")
+                # if whole_data[0] == _list[-1]:
+                #     raise FileNotFoundError("Failed to find match to decrypt.")
+                # else:
+                #     continue
+                if k == len(verification_data) - 1:
+                    # whole_data.pop(0)
                     raise FileNotFoundError("Failed to find match to decrypt.")
                 continue
             except IndexError:
-                continue
+                break
             else:
-                verifier_index_cache.append(verification_data.index(whole_data))
+                print("SUCCESS")
+                i += 1
+                verifier_index_cache.append(k)
 
                 raw_data = whole_data.pop(0)
                 sequenced_raw.append(raw_data)
@@ -56,8 +76,9 @@ def begin():
 
                 previous_vote_data = raw_data
 
-                continue
+                break
 
+    print("\n\n")
     print("####### REPORT #######")
     print(f"Initial Encryption Key: \"{INITIAL_DATA}\"")
     print(f"Number of Verifiers: {len(verification_data)}")
