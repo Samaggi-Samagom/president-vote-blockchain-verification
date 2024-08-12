@@ -1,14 +1,12 @@
 from os import listdir
 from os.path import join
-from cryptography.fernet import Fernet, InvalidToken
-from cryptography.exceptions import InvalidSignature
 from collections import Counter
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 import base64
 
 
-INITIAL_DATA = "VOTE_INTIAL_DATA"
+INITIAL_DATA = "INITIAL_VOTE_DATA"
 
 
 def begin():
