@@ -3,10 +3,12 @@ from os.path import join
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.exceptions import InvalidSignature
 from collections import Counter
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
 import base64
 
 
-INITIAL_DATA = "gAAAAABkjUtBL9vxTiHe_rZSBs6OJFVmMAQIlLWqb1GJAXG4-6S8CYImNfmk6nc3Bk3YuAp0RrT8R1ipa8ea_j3mV-G5z1P8UUQ7QzllO4lfyn9eN3w5l-ujiw5hmQxvX1njXLNgeoT6VroiSmOJvPn_3pLQ0TkaxVpyGqopkpL7nH04QfzLCfJj__zqNyXbD7SD2kfiI6ndRvYVhV8Kh8teEnbzVFFu-g=="
+INITIAL_DATA = "VOTE_INTIAL_DATA"
 
 
 def begin():
@@ -43,9 +45,10 @@ def begin():
                   f"Using: {previous_vote_data}")
 
             try:
-                data = fernet_decrypt(whole_data[0], previous_vote_data)
-            except (InvalidToken, InvalidSignature):
-                print("FAILED")
+                data = decrypt(whole_data[0], previous_vote_data)
+                data = data[:data.index("\n") if "\n" in data else -1]
+            except Exception as e:
+                print("FAILED", e)
                 # if whole_data[0] == _list[-1]:
                 #     raise FileNotFoundError("Failed to find match to decrypt.")
                 # else:
@@ -95,7 +98,6 @@ def begin():
     [print(f"SEQ {i:04}: {x}") for i, x in enumerate(sequenced_data)]
 
 
-
 def calculate_bias(index_data, verifier_file_names):
     occurrences = Counter(index_data)
     average = sum(occurrences.values())/len(occurrences)
@@ -104,23 +106,36 @@ def calculate_bias(index_data, verifier_file_names):
     return normalised
 
 
-def fernet_encrypt(data: str, key: str) -> str:
-    encryptor = Fernet(create_key(key))
-
-    return encryptor.encrypt(data.encode("utf-8")).decode("utf-8")
+def pad(s):
+    return s + (16 - len(s) % 16) * chr(16 - len(s) % 16)
 
 
-def fernet_decrypt(data: str, key: str) -> str:
-    encryptor = Fernet(create_key(key))
-
-    return encryptor.decrypt(data.encode("utf-8")).decode("utf-8")
+def unpad(s):
+    return s[:-ord(s[len(s)-1:])]
 
 
-def create_key(key: str):
-    truncated_key = key[:32]
-    filled_key = truncated_key + "ThisIsAFillerForTheKeyUsedInTheEncryption"[:32-len(key)]
+def decrypt(encrypted_data, key):
+    encrypted_data = base64.urlsafe_b64decode(encrypted_data)
+    key = key.ljust(32)[:32].encode('utf-8')
+    iv = encrypted_data[:16]
+    encrypted = encrypted_data[16:]
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+    decryptor = cipher.decryptor()
+    decrypted = decryptor.update(encrypted) + decryptor.finalize()
+    return unpad(decrypted.decode('utf-8'))
 
-    return base64.urlsafe_b64encode(filled_key.encode("utf-8"))
+
+# def fernet_decrypt(data: str, key: str) -> str:
+#     encryptor = Fernet(create_key(key))
+#
+#     return encryptor.decrypt(data.encode("utf-8")).decode("utf-8")
+#
+#
+# def create_key(key: str):
+#     truncated_key = key[:32]
+#     filled_key = truncated_key + "ThisIsAFillerForTheKeyUsedInTheEncryption"[:32-len(key)]
+#
+#     return base64.urlsafe_b64encode(filled_key.encode("utf-8"))
 
 
 if __name__ == '__main__':
